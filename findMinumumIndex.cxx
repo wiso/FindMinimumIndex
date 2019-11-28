@@ -1,6 +1,7 @@
+#include <algorithm>
 #include <random>
-#include <iostream>
 #include <chrono>
+#include <iostream>
 
 constexpr int alignment=32;
 
