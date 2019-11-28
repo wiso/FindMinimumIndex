@@ -8,4 +8,4 @@ gcc
 
 clang
 ----------------
-- https://godbolt.org/z/33jbqu
+- https://godbolt.org/z/PhcmQ8
