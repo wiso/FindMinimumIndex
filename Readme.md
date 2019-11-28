@@ -3,7 +3,7 @@ Compiler Explorer
 
 gcc 
 -----------------
-- https://godbolt.org/z/rfdZR6
+- https://godbolt.org/z/-_KU4X
 
 
 clang
