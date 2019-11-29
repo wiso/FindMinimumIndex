@@ -129,7 +129,7 @@ size_t findMinimumIndexSSE4(float* __restrict arrayIn, const size_t n) {
   for (size_t i=4; i<n; i+=4) {
     indices = _mm_add_epi32(indices, increment);//increment indices
     const __m128 values        = _mm_load_ps((array + i));//load new values
-    const __m128 lt            = _mm_cmplt_ps(values, minvalues);//compare with previous minvalues/create mask
+    const __m128i lt            = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));//compare with previous minvalues/create mask
     minindices = _mm_blendv_epi8(minindices, indices, lt);
     minvalues  = _mm_min_ps(values, minvalues);
   }
@@ -153,11 +153,7 @@ size_t findMinimumIndexSSE4(float* __restrict arrayIn, const size_t n) {
   }
   return minindex;
 }
-
-
 const auto findMinIndex =findMinimumIndexSSE4;
-
-
 
 #elif defined(__SSE2__)
 #warning ( "SSE_2" )
@@ -182,7 +178,7 @@ size_t findMinimumIndexSSE2(float* __restrict arrayIn, const size_t n) {
   for (size_t i=4; i<n; i+=4) {
     indices = _mm_add_epi32(indices, increment);//increment indices
     const __m128 values        = _mm_load_ps((array + i));//load new values
-    const __m128 lt            = _mm_cmplt_ps(values, minvalues);//compare with previous minvalues/create mask
+    const __m128i lt            = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));//compare with previous minvalues/create mask
     minindices = SSE2_mm_blendv_epi8(minindices, indices, lt);
     minvalues  = _mm_min_ps(values, minvalues);
   }
