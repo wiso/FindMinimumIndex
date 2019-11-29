@@ -114,9 +114,11 @@ size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t n){
 
 #if defined(__SSE4_1__) || defined(__SSE2__) 
 
+
 #if defined(__SSE4_1__) 
 #warning ( "SSE 4_1" )
 #include <smmintrin.h>
+
 #elif defined(__SSE2__)
 #warning ( "SSE_2" )
 #include <emmintrin.h> 
@@ -124,7 +126,54 @@ static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i c) {
   return _mm_or_si128(_mm_andnot_si128(c, a), _mm_and_si128(c, b));
 }
 const auto _mm_blendv_epi8 = SSE2_mm_blendv_epi8;
-#endif
+#endif //on SSE4.1 vs SSE2
+
+
+size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
+  float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+  /* 
+   * SIMD part
+   */
+  const __m128i increment = _mm_set1_epi32(4);
+  __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
+  __m128i minindices      = indices;
+  __m128 minvalues       = _mm_load_ps(array);
+
+  for (size_t i=0; i<n; i+=8) {
+   //first 4 
+   const __m128 values0   = _mm_load_ps(array+i); 
+   const __m128i lt0     = _mm_castps_si128 (_mm_cmplt_ps(values0, minvalues));//compare with previous minvalues/create mask
+   minindices = _mm_blendv_epi8(minindices, indices, lt0);
+   minvalues  = _mm_min_ps(values0, minvalues);
+   indices = _mm_add_epi32(indices, increment);//increment indices
+ 
+   //second 4 
+   const  __m128 values1  = _mm_load_ps(array+i+4); //second 4
+   const __m128i lt1     = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues));//compare with previous minvalues/create mask
+   minindices = _mm_blendv_epi8(minindices, indices, lt1);
+   minvalues  = _mm_min_ps(values1, minvalues);
+   indices = _mm_add_epi32(indices, increment);//increment indices
+  }
+  /*
+   * do the final calculation scalar way
+   * store in arrays of 4 elemenrs and do the std implementation
+   */
+  float  finalValues[4];
+  int32_t finalIndices[4];
+  _mm_storeu_ps(finalValues,minvalues);
+  _mm_storeu_si128((__m128i*)finalIndices, minindices);
+  
+  size_t  minindex = finalIndices[0];
+  float  minvalue = finalValues[0];
+  for (size_t i=1; i < 4; ++i) {
+    const float value = finalValues[i];  
+    if (value < minvalue) {
+      minvalue = value;
+      minindex = finalIndices[i];
+    }    
+  }
+  return minindex;
+}
 
 size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
@@ -163,11 +212,12 @@ size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
   }
   return minindex;
 }
-const auto findMinIndex =findMinimumIndexSSE;
+
 #else
 #warning( "NO SSE" )
-const auto findMinIndex =findMinimumIndexC;
-#endif
+const auto findMinimumIndexSSE =findMinimumIndexC;
+const auto findMinimumIndexSSEUnRoll=findMinimumIndexC;  
+#endif //On SSE vs No SSE
 
 int main(){
   /*
@@ -180,7 +230,7 @@ int main(){
   std::uniform_int_distribution<> disint(70, 80);
   const size_t n= disint(gen);
   const size_t initnn= n*(n-1)/2;
-  const size_t nn = ( 4* round(initnn /4. ));
+  const size_t nn = ( 8* round(initnn /8. ));
 
   AlignedDynArray<float,alignment> array(nn);
   for (size_t i = 0; i < nn; ++i) {
@@ -231,11 +281,11 @@ int main(){
   std::cout<<'\n';
   //3.
   { 
-    //Test simple C-style solution
-    std::cout << "-- findMinIndex ---" <<'\n'; 
+    //Test simple SSE solution
+    std::cout << "-- findMinimumIndexSSE ---" <<'\n'; 
     //Time it
     std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
-    auto index=findMinIndex(array,nn);
+    auto index=findMinimumIndexSSE(array,nn);
     std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
     std::chrono::steady_clock::duration diff = clock_end - clock_begin;
     //print 
@@ -243,5 +293,18 @@ int main(){
     std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
   }
   std::cout<<'\n';
-
+  //4.
+  { 
+    //Test simple SSE unroll solution
+    std::cout << "-- findMinimumIndexSSEUnRoll ---" <<'\n'; 
+    //Time it
+    std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
+    auto index=findMinimumIndexSSEUnRoll(array,nn);
+    std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::duration diff = clock_end - clock_begin;
+    //print 
+    std::cout <<"Time: " << std::chrono::duration <double, std::nano> (diff).count() << "ns" << '\n';
+    std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
+  }
+  std::cout<<'\n';
 }
