@@ -1,11 +1,8 @@
+Find Mimimum Index of array
+------------------------------------
+
+
 Compiler Explorer
 ------------------
-
-gcc 
------------------
-- https://godbolt.org/z/-_KU4X
-
-
-clang
-----------------
-- https://godbolt.org/z/PhcmQ8
+- gcc : https://godbolt.org/z/WquQ3J
+- clang : https://godbolt.org/z/VZuvbV
