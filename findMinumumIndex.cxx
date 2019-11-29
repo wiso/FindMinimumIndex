@@ -244,8 +244,7 @@ int main(){
   //std::mt19937 gen(rd()); 
   std::mt19937 gen; 
   std::uniform_real_distribution<> dis(1.0, 10.0);
-  std::uniform_int_distribution<> disint(70, 80);
-  const size_t n= disint(gen);
+  const size_t n= 72;
   const size_t initnn= n*(n-1)/2;
   const size_t nn = ( 16* round(initnn /16. ));
 
