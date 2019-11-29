@@ -139,7 +139,7 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
   __m128i minindices      = indices;
   __m128 minvalues       = _mm_load_ps(array);
 
-  for (size_t i=0; i<n; i+=8) {
+  for (size_t i=0; i<n; i+=16) {
    //first 4 
    const __m128 values0   = _mm_load_ps(array+i); 
    const __m128i lt0     = _mm_castps_si128 (_mm_cmplt_ps(values0, minvalues));//compare with previous minvalues/create mask
@@ -153,6 +153,23 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
    minindices = _mm_blendv_epi8(minindices, indices, lt1);
    minvalues  = _mm_min_ps(values1, minvalues);
    indices = _mm_add_epi32(indices, increment);//increment indices
+   
+   //third 4
+   const  __m128 values2  = _mm_load_ps(array+i+2*4); //second 4
+   const __m128i lt2     = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues));//compare with previous minvalues/create mask
+   minindices = _mm_blendv_epi8(minindices, indices, lt2);
+   minvalues  = _mm_min_ps(values2, minvalues);
+   indices = _mm_add_epi32(indices, increment);//increment indices
+ 
+   //fourth 4
+   const  __m128 values3  = _mm_load_ps(array+i+3*4); //second 4
+   const __m128i lt3     = _mm_castps_si128 (_mm_cmplt_ps(values3, minvalues));//compare with previous minvalues/create mask
+   minindices = _mm_blendv_epi8(minindices, indices, lt3);
+   minvalues  = _mm_min_ps(values3, minvalues);
+   indices = _mm_add_epi32(indices, increment);//increment indices
+ 
+ 
+
   }
   /*
    * do the final calculation scalar way
@@ -230,7 +247,7 @@ int main(){
   std::uniform_int_distribution<> disint(70, 80);
   const size_t n= disint(gen);
   const size_t initnn= n*(n-1)/2;
-  const size_t nn = ( 8* round(initnn /8. ));
+  const size_t nn = ( 16* round(initnn /16. ));
 
   AlignedDynArray<float,alignment> array(nn);
   for (size_t i = 0; i < nn; ++i) {
