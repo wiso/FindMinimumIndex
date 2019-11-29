@@ -122,9 +122,10 @@ size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t n){
 #elif defined(__SSE2__)
 #warning ( "SSE_2" )
 #include <emmintrin.h> 
-static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i c) {
-  return _mm_or_si128(_mm_andnot_si128(c, a), _mm_and_si128(c, b));
+static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i mask) {
+  return _mm_or_si128(_mm_andnot_si128(mask, a), _mm_and_si128(mask, b));
 }
+
 const auto _mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 #endif //on SSE4.1 vs SSE2
 
@@ -138,48 +139,41 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
   __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
   __m128i minindices      = indices;
   __m128 minvalues       = _mm_load_ps(array);
-
   for (size_t i=0; i<n; i+=16) {
-   //first 4 
-   const __m128 values0   = _mm_load_ps(array+i); 
-   const __m128i lt0     = _mm_castps_si128 (_mm_cmplt_ps(values0, minvalues));//compare with previous minvalues/create mask
-   minindices = _mm_blendv_epi8(minindices, indices, lt0);
-   minvalues  = _mm_min_ps(values0, minvalues);
-   indices = _mm_add_epi32(indices, increment);//increment indices
- 
-   //second 4 
-   const  __m128 values1  = _mm_load_ps(array+i+4); //second 4
-   const __m128i lt1     = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues));//compare with previous minvalues/create mask
-   minindices = _mm_blendv_epi8(minindices, indices, lt1);
-   minvalues  = _mm_min_ps(values1, minvalues);
-   indices = _mm_add_epi32(indices, increment);//increment indices
-   
-   //third 4
-   const  __m128 values2  = _mm_load_ps(array+i+2*4); //second 4
-   const __m128i lt2     = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues));//compare with previous minvalues/create mask
-   minindices = _mm_blendv_epi8(minindices, indices, lt2);
-   minvalues  = _mm_min_ps(values2, minvalues);
-   indices = _mm_add_epi32(indices, increment);//increment indices
- 
-   //fourth 4
-   const  __m128 values3  = _mm_load_ps(array+i+3*4); //second 4
-   const __m128i lt3     = _mm_castps_si128 (_mm_cmplt_ps(values3, minvalues));//compare with previous minvalues/create mask
-   minindices = _mm_blendv_epi8(minindices, indices, lt3);
-   minvalues  = _mm_min_ps(values3, minvalues);
-   indices = _mm_add_epi32(indices, increment);//increment indices
- 
- 
-
+    //Load 16 elements at a time 
+    const __m128 values0   = _mm_load_ps(array+i);  
+    const  __m128 values1  = _mm_load_ps(array+i+4); //second 4
+    const  __m128 values2  = _mm_load_ps(array+i+8); //second 4
+    const  __m128 values3  = _mm_load_ps(array+i+12); //second 4
+    //0
+    __m128i lt     = _mm_castps_si128 (_mm_cmplt_ps(values0, minvalues));//compare with previous minvalues/create mask
+    minindices = _mm_blendv_epi8(minindices, indices, lt);//blend with mask to get updated indices
+    minvalues  = _mm_min_ps(values0, minvalues);//get new min values
+    indices = _mm_add_epi32(indices, increment);//increment indices
+    //1
+    lt    = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues));//compare with previous minvalues/create mask
+    minindices = _mm_blendv_epi8(minindices, indices, lt);//blend with mask to get updated indices 
+    minvalues  = _mm_min_ps(values1, minvalues);//get new min values
+    indices = _mm_add_epi32(indices, increment);//increment indices
+    //2
+    lt     = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues));//compare with previous minvalues/create mask
+    minindices = _mm_blendv_epi8(minindices, indices, lt);//blend with mask to get updated indices
+    minvalues  = _mm_min_ps(values2, minvalues);//get new min values
+    indices = _mm_add_epi32(indices, increment);//increment indices
+    //3
+    lt     = _mm_castps_si128 (_mm_cmplt_ps(values3, minvalues));//compare with previous minvalues/create mask
+    minindices = _mm_blendv_epi8(minindices, indices, lt);//blend with mask to get updated indices
+    minvalues  = _mm_min_ps(values3, minvalues);//get new min values
+    indices = _mm_add_epi32(indices, increment);//increment indices
   }
   /*
-   * do the final calculation scalar way
-   * store in arrays of 4 elemenrs and do the std implementation
+   * Do the final calculation scalar way since this is 
+   * only 4 can be perhaps done a bit better
    */
   float  finalValues[4];
   int32_t finalIndices[4];
   _mm_storeu_ps(finalValues,minvalues);
   _mm_storeu_si128((__m128i*)finalIndices, minindices);
-  
   size_t  minindex = finalIndices[0];
   float  minvalue = finalValues[0];
   for (size_t i=1; i < 4; ++i) {
@@ -217,7 +211,7 @@ size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
   int32_t finalIndices[4];
   _mm_storeu_ps(finalValues,minvalues);
   _mm_storeu_si128((__m128i*)finalIndices, minindices);
-  
+
   size_t  minindex = finalIndices[0];
   float  minvalue = finalValues[0];
   for (size_t i=1; i < 4; ++i) {
