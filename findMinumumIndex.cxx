@@ -221,9 +221,7 @@ int main(){
   std::uniform_int_distribution<> disint(70, 80);
   const size_t n= disint(gen);
   const size_t initnn= n*(n-1)/2;
-  const size_t mod=initnn%4;
-  const size_t nn = initnn+mod;
-
+  const size_t nn = ( 4* round(initnn /4. ));
 
   AlignedDynArray<float,alignment> array(nn);
   for (size_t i = 0; i < nn; ++i) {
