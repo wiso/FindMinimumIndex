@@ -88,7 +88,7 @@ std::size_t AlignedDynArray<T,Alignment>::size() const {return m_size;}
  * Scalar code kind of C style 
  * Seem to runs the same when using gcc/clang -O2 
  */
-static inline size_t findMinimumIndexC(float* __restrict arrayIn, const size_t n){  
+size_t findMinimumIndexC(float* __restrict arrayIn, const size_t n){  
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
   float minimum = array[0]; 
   size_t minIndex=0;
@@ -106,7 +106,7 @@ static inline size_t findMinimumIndexC(float* __restrict arrayIn, const size_t n
  * Seem to be faster than the C-style above for clang -O2
  * and slower for gcc -O2  
  */
-static inline size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t n){  
+size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t n){  
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
   return std::distance(array, std::min_element(array, array+n));
 }
