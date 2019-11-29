@@ -112,11 +112,21 @@ static inline size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t
 }
 
 
-#if defined(__SSE4_1__)
+#if defined(__SSE4_1__) || defined(__SSE2__) 
+
+#if defined(__SSE4_1__) 
 #warning ( "SSE 4_1" )
 #include <smmintrin.h>
+#elif defined(__SSE2__)
+#warning ( "SSE_2" )
+#include <emmintrin.h> 
+static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i c) {
+  return _mm_or_si128(_mm_andnot_si128(c, a), _mm_and_si128(c, b));
+}
+const auto _mm_blendv_epi8 = SSE2_mm_blendv_epi8;
+#endif
 
-size_t findMinimumIndexSSE4(float* __restrict arrayIn, const size_t n) {
+size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
   /* 
    * SIMD part
@@ -153,62 +163,11 @@ size_t findMinimumIndexSSE4(float* __restrict arrayIn, const size_t n) {
   }
   return minindex;
 }
-const auto findMinIndex =findMinimumIndexSSE4;
-
-#elif defined(__SSE2__)
-#warning ( "SSE_2" )
-/*
- * SSE2 alone 
- */
-#include <emmintrin.h> 
-/* Condiotion-less branch / blendv for SSE2*/
-static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i c) {
-  return _mm_or_si128(_mm_andnot_si128(c, a), _mm_and_si128(c, b));
-}
-size_t findMinimumIndexSSE2(float* __restrict arrayIn, const size_t n) {
-  float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
-  /* 
-   * SIMD part
-   */
-  const __m128i increment = _mm_set1_epi32(4);
-  __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
-  __m128i minindices      = indices;
-  __m128 minvalues       = _mm_load_ps(array);
-
-  for (size_t i=4; i<n; i+=4) {
-    indices = _mm_add_epi32(indices, increment);//increment indices
-    const __m128 values        = _mm_load_ps((array + i));//load new values
-    const __m128i lt            = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));//compare with previous minvalues/create mask
-    minindices = SSE2_mm_blendv_epi8(minindices, indices, lt);
-    minvalues  = _mm_min_ps(values, minvalues);
-  }
-  /*
-   * do the final calculation scalar way
-   * store in arrays of 4 elemenrs and do the std implementation
-   */
-  float  finalValues[4];
-  int32_t finalIndices[4];
-  _mm_storeu_ps(finalValues,minvalues);
-  _mm_storeu_si128((__m128i*)finalIndices, minindices);
-  
-  size_t  minindex = finalIndices[0];
-  float  minvalue = finalValues[0];
-  for (size_t i=1; i < 4; ++i) {
-    const float value = finalValues[i];  
-    if (value < minvalue) {
-      minvalue = value;
-      minindex = finalIndices[i];
-    }    
-  }
-  return minindex;
-}
-const auto findMinIndex =findMinimumIndexSSE2;
+const auto findMinIndex =findMinimumIndexSSE;
 #else
 #warning( "NO SSE" )
 const auto findMinIndex =findMinimumIndexC;
 #endif
-
-
 
 int main(){
   /*
