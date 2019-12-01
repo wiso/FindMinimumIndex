@@ -243,7 +243,7 @@ int main(){
   std::mt19937 gen; 
   std::uniform_real_distribution<> dis(1.0, 10.0);
   const size_t n= 72;
-  const size_t initnn= n*(n-1)/2;
+  const size_t initnn= n*(n+1)/2;
   const size_t nn = ( 16* round(initnn /16. ));
 
   AlignedDynArray<float,alignment> array(nn);

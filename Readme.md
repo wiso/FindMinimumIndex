@@ -13,5 +13,5 @@ http://0x80.pl/notesen/2018-10-03-simd-index-of-min.html
 
 Compiler Explorer tests
 ----------------------
-- gcc : https://godbolt.org/z/jTTShQ
-- clang : https://godbolt.org/z/hut9hF
+- gcc : https://godbolt.org/z/Tmg7N-
+- clang : https://godbolt.org/z/CnGXk5
