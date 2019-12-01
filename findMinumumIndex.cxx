@@ -1,4 +1,4 @@
-#include <stdlib.h>
+﻿#include <stdlib.h>
 #include <algorithm>
 #include <random>
 #include <chrono>
@@ -88,11 +88,12 @@ std::size_t AlignedDynArray<T,Alignment>::size() const {return m_size;}
  * Scalar code kind of C style 
  * Seem to runs the same when using gcc/clang -O2 
  */
-size_t findMinimumIndexC(float* __restrict arrayIn, const size_t n){  
+size_t findMinimumIndexC(float* __restrict arrayIn, int n){  
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
   float minimum = array[0]; 
   size_t minIndex=0;
-  for (size_t i=0 ; i<n ; ++i){
+  n = n&0xfffffff0; //n is multiple of 16
+  for (int i=0 ; i<n ; ++i){
     const float value = array[i]; 
     if(value<minimum){
       minimum=value;
@@ -106,8 +107,9 @@ size_t findMinimumIndexC(float* __restrict arrayIn, const size_t n){
  * Seem to be faster than the C-style above for clang -O2
  * and slower for gcc -O2  
  */
-size_t findMinimumIndexCPP(float* __restrict arrayIn, const size_t n){  
+size_t findMinimumIndexCPP(float* __restrict arrayIn, int n){  
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
+    n = n&0xfffffff0; //n is multiple of 16
   return std::distance(array, std::min_element(array, array+n));
 }
 
@@ -130,8 +132,9 @@ const auto _mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 #endif //on SSE4.1 vs SSE2
 
 
-size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
+size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, int n) {
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+  n = n&0xfffffff0; //n is multiple of 16
   /* 
    * SIMD part
    */
@@ -139,7 +142,7 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
   __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
   __m128i minindices      = indices;
   __m128 minvalues       = _mm_load_ps(array);
-  for (size_t i=0; i<n; i+=16) {
+  for (int i=0; i<n; i+=16) {
     //Load 16 elements at a time 
     const __m128 values0   = _mm_load_ps(array+i);  
     const  __m128 values1  = _mm_load_ps(array+i+4); //second 4
@@ -186,8 +189,9 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, const size_t n) {
   return minindex;
 }
 
-size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
+size_t findMinimumIndexSSE(float* __restrict arrayIn, int n) {
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+  n = n&0xfffffff0; //n is multiple of 16
   /* 
    * SIMD part
    */
@@ -196,7 +200,7 @@ size_t findMinimumIndexSSE(float* __restrict arrayIn, const size_t n) {
   __m128i minindices      = indices;
   __m128 minvalues       = _mm_load_ps(array);
 
-  for (size_t i=4; i<n; i+=4) {
+  for (int i=4; i<n; i+=4) {
     indices = _mm_add_epi32(indices, increment);//increment indices
     const __m128 values        = _mm_load_ps((array + i));//load new values
     const __m128i lt            = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));//compare with previous minvalues/create mask
