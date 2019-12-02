@@ -239,7 +239,7 @@ size_t findMinimumIndexSSE16(float* __restrict arrayIn, int n) {
   __m128i minindices1      = indices1;
   __m128i minindices2      = indices2;
   __m128i minindices3      = indices3;
-  __m128i minindices4      = indices3;
+  __m128i minindices4      = indices4;
   
   __m128 minvalues1       = _mm_load_ps(array);
   __m128 minvalues2       = _mm_load_ps(array+4);
