@@ -147,10 +147,10 @@ size_t findMinimumIndexSSE4(float* __restrict arrayIn, int n) {
   /*
    * do the final calculation scalar way
    */
-  float  finalValues[4];
-  int32_t finalIndices[4];
-  _mm_storeu_ps(finalValues,minvalues);
-  _mm_storeu_si128((__m128i*)finalIndices, minindices);
+  alignas(alignment) float  finalValues[4];
+  alignas(alignment) int32_t finalIndices[4];
+  _mm_store_ps(finalValues,minvalues);
+  _mm_store_si128((__m128i*)finalIndices, minindices);
 
   size_t  minindex = finalIndices[0];
   float  minvalue = finalValues[0];
@@ -195,12 +195,12 @@ size_t findMinimumIndexSSE8(float* __restrict arrayIn, int n) {
   /*
    * Do the final calculation scalar way 
    */
-  float  finalValues[8];
-  int32_t finalIndices[8];
-  _mm_storeu_ps(finalValues,minvalues1);
-  _mm_storeu_ps(finalValues+4,minvalues2);
-  _mm_storeu_si128((__m128i*)(finalIndices), minindices1);
-  _mm_storeu_si128((__m128i*)(finalIndices+4), minindices2);
+  alignas(alignment) float  finalValues[8];
+  alignas(alignment) int32_t finalIndices[8];
+  _mm_store_ps(finalValues,minvalues1);
+  _mm_store_ps(finalValues+4,minvalues2);
+  _mm_store_si128((__m128i*)(finalIndices), minindices1);
+  _mm_store_si128((__m128i*)(finalIndices+4), minindices2);
   
   size_t  minindex = finalIndices[0];
   float  minvalue = finalValues[0];
@@ -263,8 +263,8 @@ size_t findMinimumIndexSSE16(float* __restrict arrayIn, int n) {
   /*
    * Do the final calculation scalar way 
    */
-  float  finalValues[16];
-  int32_t finalIndices[16];
+  alignas(alignment) float  finalValues[16];
+  alignas(alignment) int32_t finalIndices[16];
   _mm_storeu_ps(finalValues,minvalues1);
   _mm_storeu_ps(finalValues+4,minvalues2);
   _mm_storeu_ps(finalValues+8,minvalues3);
