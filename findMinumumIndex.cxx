@@ -130,7 +130,7 @@ const auto _mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 #endif //on SSE4.1 vs SSE2
 
 
-size_t findMinimumIndexSSE(float* __restrict arrayIn, int n) {
+size_t findMinimumIndexSSE4(float* __restrict arrayIn, int n) {
   float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
   /* 
    * SIMD part
@@ -162,6 +162,133 @@ size_t findMinimumIndexSSE(float* __restrict arrayIn, int n) {
     const float value = finalValues[i];  
     if (value < minvalue) {
       minvalue = value;
+      minindex = finalIndices[i];
+    }    
+  }
+  return minindex;
+}
+
+size_t findMinimumIndexSSE8(float* __restrict arrayIn, int n) {
+  float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+  /* 
+   * SIMD part
+   */
+  
+  const __m128i increment = _mm_set1_epi32(8);
+  __m128i indices1         = _mm_setr_epi32(0, 1, 2, 3);
+  __m128i indices2         = _mm_setr_epi32(4, 5, 6, 7);
+
+  __m128i minindices1      = indices1;
+  __m128i minindices2      = indices2;
+  
+  __m128 minvalues1       = _mm_load_ps(array);
+  __m128 minvalues2       = _mm_load_ps(array+4);
+  
+  for (int i=8; i<n; i+=8) {
+    //Load 16 elements at a time 
+    const __m128 values1   = _mm_load_ps(array+i);  
+    const  __m128 values2  = _mm_load_ps(array+i+4); //second 4
+     //1
+    indices1 = _mm_add_epi32(indices1, increment);//increment indices
+    __m128i lt1 = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues1));//compare with previous minvalues/create mask
+     minindices1 = _mm_blendv_epi8(minindices1, indices1, lt1);//blend with mask to get updated indices
+     minvalues1  = _mm_min_ps(values1, minvalues1);//get new min values
+     //2
+    indices2 = _mm_add_epi32(indices2, increment);//increment indices
+    __m128i lt2 = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues2));//compare with previous minvalues/create mask
+     minindices2 = _mm_blendv_epi8(minindices2, indices2, lt2);//blend with mask to get updated indices
+     minvalues2  = _mm_min_ps(values2, minvalues2);//get new min values
+  }
+  /*
+   * Do the final calculation scalar way since this is 
+   */
+  float  finalValues[8];
+  int32_t finalIndices[8];
+  _mm_storeu_ps(finalValues,minvalues1);
+  _mm_storeu_ps(finalValues+4,minvalues2);
+  _mm_storeu_si128((__m128i*)(finalIndices), minindices1);
+  _mm_storeu_si128((__m128i*)(finalIndices+4), minindices2);
+  
+  size_t  minindex = finalIndices[0];
+  float  minvalue = finalValues[0];
+  for (size_t i=1; i < 8; ++i) {
+    if (finalValues[i] < minvalue) {
+      minvalue = finalValues[i];
+      minindex = finalIndices[i];
+    }    
+  }
+  return minindex;
+}
+
+
+size_t findMinimumIndexSSE16(float* __restrict arrayIn, int n) {
+  float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+  /* 
+   * SIMD part
+   */
+  
+  const __m128i increment = _mm_set1_epi32(16);
+  __m128i indices1         = _mm_setr_epi32(0, 1, 2, 3);
+  __m128i indices2         = _mm_setr_epi32(4, 5, 6, 7);
+  __m128i indices3         = _mm_setr_epi32(8, 9, 10, 11);
+  __m128i indices4         = _mm_setr_epi32(12, 13, 14, 15);
+
+  __m128i minindices1      = indices1;
+  __m128i minindices2      = indices2;
+  __m128i minindices3      = indices3;
+  __m128i minindices4      = indices4;
+  
+  __m128 minvalues1       = _mm_load_ps(array);
+  __m128 minvalues2       = _mm_load_ps(array+4);
+  __m128 minvalues3       = _mm_load_ps(array+8);
+  __m128 minvalues4       = _mm_load_ps(array+12);
+  
+  for (int i=16; i<n; i+=16) {
+    //Load 16 elements at a time 
+    const __m128 values1   = _mm_load_ps(array+i);  
+    const  __m128 values2  = _mm_load_ps(array+i+4); //second 4
+    const  __m128 values3  = _mm_load_ps(array+i+8); //third 4
+    const  __m128 values4  = _mm_load_ps(array+i+12); //fourth 4
+     //1
+    indices1 = _mm_add_epi32(indices1, increment);//increment indices
+    __m128i lt1 = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues1));//compare with previous minvalues/create mask
+     minindices1 = _mm_blendv_epi8(minindices1, indices1, lt1);//blend with mask to get updated indices
+     minvalues1  = _mm_min_ps(values1, minvalues1);//get new min values
+     //2
+    indices2 = _mm_add_epi32(indices2, increment);//increment indices
+    __m128i lt2 = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues2));//compare with previous minvalues/create mask
+     minindices2 = _mm_blendv_epi8(minindices2, indices2, lt2);//blend with mask to get updated indices
+     minvalues2  = _mm_min_ps(values2, minvalues2);//get new min values
+    //3
+    indices3 = _mm_add_epi32(indices3, increment);//increment indices
+    __m128i lt3 = _mm_castps_si128 (_mm_cmplt_ps(values3, minvalues3));//compare with previous minvalues/create mask
+     minindices3 = _mm_blendv_epi8(minindices3, indices3, lt3);//blend with mask to get updated indices
+     minvalues3  = _mm_min_ps(values3, minvalues3);//get new min values
+    //4
+     indices4 = _mm_add_epi32(indices4, increment);//increment indices
+    __m128i lt4 = _mm_castps_si128 (_mm_cmplt_ps(values4, minvalues4));//compare with previous minvalues/create mask
+     minindices4 = _mm_blendv_epi8(minindices4, indices4, lt4);//blend with mask to get updated indices
+     minvalues4  = _mm_min_ps(values4, minvalues4);//get new min values
+  }
+  /*
+   * Do the final calculation scalar way since this is 
+   */
+  float  finalValues[16];
+  int32_t finalIndices[16];
+  _mm_storeu_ps(finalValues,minvalues1);
+  _mm_storeu_ps(finalValues+4,minvalues2);
+  _mm_storeu_ps(finalValues+8,minvalues3);
+  _mm_storeu_ps(finalValues+12,minvalues4);
+  _mm_storeu_si128((__m128i*)(finalIndices), minindices1);
+  _mm_storeu_si128((__m128i*)(finalIndices+4), minindices2);
+  _mm_storeu_si128((__m128i*)(finalIndices+8), minindices3);
+  _mm_storeu_si128((__m128i*)(finalIndices+12), minindices4);
+  
+  size_t  minindex = finalIndices[0];
+  float  minvalue = finalValues[0];
+  for (size_t i=1; i < 16; ++i) {
+    if (finalValues[i] < minvalue) {
+      minvalue = finalValues[i];
       minindex = finalIndices[i];
     }    
   }
@@ -223,82 +350,6 @@ size_t findMinimumIndexSSEUnRoll(float* __restrict arrayIn, int n) {
   }
   return minindex;
 }
-
-size_t findMinimumIndexSSE16(float* __restrict arrayIn, int n) {
-  float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
-  /* 
-   * SIMD part
-   */
-  
-  const __m128i increment = _mm_set1_epi32(16);
-  __m128i indices1         = _mm_setr_epi32(0, 1, 2, 3);
-  __m128i indices2         = _mm_setr_epi32(4, 5, 6, 7);
-  __m128i indices3         = _mm_setr_epi32(8, 9, 10, 11);
-  __m128i indices4         = _mm_setr_epi32(12, 13, 14, 15);
-
-  __m128i minindices1      = indices1;
-  __m128i minindices2      = indices2;
-  __m128i minindices3      = indices3;
-  __m128i minindices4      = indices4;
-  
-  __m128 minvalues1       = _mm_load_ps(array);
-  __m128 minvalues2       = _mm_load_ps(array+4);
-  __m128 minvalues3       = _mm_load_ps(array+8);
-  __m128 minvalues4       = _mm_load_ps(array+12);
-  
-  for (int i=16; i<n; i+=16) {
-    //Load 16 elements at a time 
-    const __m128 values1   = _mm_load_ps(array+i);  
-    const  __m128 values2  = _mm_load_ps(array+i+4); //second 4
-    const  __m128 values3  = _mm_load_ps(array+i+8); //third 4
-    const  __m128 values4  = _mm_load_ps(array+i+12); //fourth 4
-     //1
-    indices1 = _mm_add_epi32(indices1, increment);//increment indices
-    __m128i lt1 = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues1));//compare with previous minvalues/create mask
-     minindices1 = _mm_blendv_epi8(minindices1, indices1, lt1);//blend with mask to get updated indices
-     minvalues1  = _mm_min_ps(values1, minvalues1);//get new min values
-     //2
-    indices2 = _mm_add_epi32(indices2, increment);//increment indices
-    __m128i lt2 = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues2));//compare with previous minvalues/create mask
-     minindices2 = _mm_blendv_epi8(minindices2, indices2, lt2);//blend with mask to get updated indices
-     minvalues2  = _mm_min_ps(values2, minvalues2);//get new min values
-    //3
-    indices3 = _mm_add_epi32(indices3, increment);//increment indices
-    __m128i lt3 = _mm_castps_si128 (_mm_cmplt_ps(values3, minvalues3));//compare with previous minvalues/create mask
-     minindices3 = _mm_blendv_epi8(minindices3, indices3, lt3);//blend with mask to get updated indices
-     minvalues3  = _mm_min_ps(values3, minvalues3);//get new min values
-    //4
-     indices4 = _mm_add_epi32(indices4, increment);//increment indices
-    __m128i lt4 = _mm_castps_si128 (_mm_cmplt_ps(values4, minvalues4));//compare with previous minvalues/create mask
-     minindices4 = _mm_blendv_epi8(minindices4, indices4, lt4);//blend with mask to get updated indices
-     minvalues4  = _mm_min_ps(values4, minvalues4);//get new min values
-  }
-  /*
-   * Do the final calculation scalar way since this is 
-   * only 4 can be perhaps done a bit better
-   */
-  float  finalValues[16];
-  int32_t finalIndices[16];
-  _mm_storeu_ps(finalValues,minvalues1);
-  _mm_storeu_ps(finalValues+4,minvalues2);
-  _mm_storeu_ps(finalValues+8,minvalues3);
-  _mm_storeu_ps(finalValues+12,minvalues4);
-  _mm_storeu_si128((__m128i*)(finalIndices), minindices1);
-  _mm_storeu_si128((__m128i*)(finalIndices+4), minindices2);
-  _mm_storeu_si128((__m128i*)(finalIndices+8), minindices3);
-  _mm_storeu_si128((__m128i*)(finalIndices+12), minindices4);
-  
-  size_t  minindex = finalIndices[0];
-  float  minvalue = finalValues[0];
-  for (size_t i=1; i < 16; ++i) {
-    if (finalValues[i] < minvalue) {
-      minvalue = finalValues[i];
-      minindex = finalIndices[i];
-    }    
-  }
-  return minindex;
-}
-
 
 
 #else
@@ -366,11 +417,11 @@ int main(){
   std::cout<<'\n';
   //3.
   { 
-    //Test simple SSE solution
-    std::cout << "-- findMinimumIndexSSE ---" <<'\n'; 
+    //Test SSE4 solution
+    std::cout << "-- findMinimumIndexSSE4 ---" <<'\n'; 
     //Time it
     std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
-    auto index=findMinimumIndexSSE(array,nn);
+    auto index=findMinimumIndexSSE4(array,nn);
     std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
     std::chrono::steady_clock::duration diff = clock_end - clock_begin;
     //print 
@@ -378,7 +429,37 @@ int main(){
     std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
   }
   std::cout<<'\n';
-  //4.
+    //4
+  { 
+    //Test SSE8 solution
+    std::cout << "-- findMinimumIndexSSE8 ---" <<'\n'; 
+    //Time it
+    std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
+    auto index=findMinimumIndexSSE8(array,nn);
+    std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::duration diff = clock_end - clock_begin;
+    //print 
+    std::cout <<"Time: " << std::chrono::duration <double, std::nano> (diff).count() << "ns" << '\n';
+    std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
+  }
+  std::cout<<'\n';
+  
+  //5.
+  { 
+    //Test  SSE16 solution
+    std::cout << "-- findMinimumIndexSSE16 ---" <<'\n'; 
+    //Time it
+    std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
+    auto index=findMinimumIndexSSE16(array,nn);
+    std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::duration diff = clock_end - clock_begin;
+    //print 
+    std::cout <<"Time: " << std::chrono::duration <double, std::nano> (diff).count() << "ns" << '\n';
+    std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
+  }
+  std::cout<<'\n';
+
+  //6.
   { 
     //Test simple SSE unroll solution
     std::cout << "-- findMinimumIndexSSEUnRoll ---" <<'\n'; 
@@ -392,20 +473,5 @@ int main(){
     std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
   }
   std::cout<<'\n';
-  //5.
-  { 
-    //Test simple SSE unroll solution
-    std::cout << "-- findMinimumIndexSSE16 ---" <<'\n'; 
-    //Time it
-    std::chrono::steady_clock::time_point clock_begin = std::chrono::steady_clock::now(); 
-    auto index=findMinimumIndexSSE16(array,nn);
-    std::chrono::steady_clock::time_point clock_end = std::chrono::steady_clock::now();
-    std::chrono::steady_clock::duration diff = clock_end - clock_begin;
-    //print 
-    std::cout <<"Time: " << std::chrono::duration <double, std::nano> (diff).count() << "ns" << '\n';
-    std::cout << "Minimum index " << index <<  " with value " <<array[index]<<'\n'; 
-  }
-  std::cout<<'\n';
-
 
 }
