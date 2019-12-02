@@ -11,11 +11,18 @@ https://gitlab.cern.ch/atlas/athena/blob/master/Tracking/TrkFitter/TrkGaussianSu
 Find Mimimum Index 
 ------------------------------------
 
-- gcc : https://godbolt.org/z/Tmg7N-
-- clang : https://godbolt.org/z/CnGXk5
+
+- gcc : https://godbolt.org/z/pamKEh
+- clang : https://godbolt.org/z/-ZAbbZ
+
+Here the compiler and the exact system/options seems to play quite an important role
+
+
 
 Calculate All Distances
 ---------------------------
 
 - gcc : https://godbolt.org/z/fbPT8d
 - clang : https://godbolt.org/z/gYwGjb
+
+Both seem to produce some SSE instructions even in -02
