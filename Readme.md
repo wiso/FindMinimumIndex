@@ -9,8 +9,8 @@ Testing various implementation of finding the index of the minimum element in an
 
 godbolt links
 --------------------
-- gcc : https://godbolt.org/z/J6TUcB
-- clang : https://godbolt.org/z/yKjRcs
+- gcc : https://godbolt.org/z/fhd5u3
+- clang : https://godbolt.org/z/FnrYzQ
 
 
 
