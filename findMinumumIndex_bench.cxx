@@ -61,7 +61,7 @@ static void findMinimumIndexC(benchmark::State& state , float* __restrict arrayI
         minIndex=i;
       }     
     }
-   escape(&minIndex);
+    escape(&minIndex);
     clobber();
   }
 } 
@@ -115,13 +115,14 @@ static void findMinimumIndexAVX2(benchmark::State& state,float* __restrict array
     size_t  minIndex = finalIndices[0];
     float  minvalue = finalValues[0];
     for (size_t i=1; i < 8; ++i) {
-      if (finalValues[i] < minvalue) {
-        minvalue = finalValues[i];
+      const float value = finalValues[i];
+      if (value < minvalue) {
+        minvalue = value;
         minIndex = finalIndices[i];
       }    
     }
-   escape(&minIndex);
-   clobber();
+    escape(&minIndex);
+    clobber();
   }
 }
 
@@ -149,7 +150,6 @@ static void  findMinimumIndexSSE_4(benchmark::State& state,float* __restrict arr
 
   for (auto _ : state) {
     float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
-
     const __m128i increment = _mm_set1_epi32(4);
     __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
     __m128i minindices      = indices;
@@ -179,7 +179,7 @@ static void  findMinimumIndexSSE_4(benchmark::State& state,float* __restrict arr
         minIndex = finalIndices[i];
       }    
     }
-   escape(&minIndex);
+    escape(&minIndex);
     clobber();
   }
 }
@@ -228,12 +228,13 @@ static void findMinimumIndexSSE_8(benchmark::State& state,float* __restrict arra
     size_t  minIndex = finalIndices[0];
     float  minvalue = finalValues[0];
     for (size_t i=1; i < 8; ++i) {
-      if (finalValues[i] < minvalue) {
-        minvalue = finalValues[i];
+      const float value = finalValues[i];
+      if (value < minvalue) {
+        minvalue = value;
         minIndex = finalIndices[i];
       }    
     }
-   escape(&minIndex);
+    escape(&minIndex);
     clobber();
   }
 }
