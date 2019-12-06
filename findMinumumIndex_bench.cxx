@@ -1,7 +1,6 @@
 ﻿#include <stdlib.h>
 #include <algorithm>
 #include <random>
-#include <iostream>
 #include <benchmark/benchmark.h>
 
 /*
