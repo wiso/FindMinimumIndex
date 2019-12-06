@@ -1,16 +1,11 @@
 Find Mimimum Index 
 ------------------------------------
-
 Testing various implementation of finding the index of the minimum element in an array.
-
 - "C" style
 - "STL" style
--  Using SSE2/SSE4.1 intrinsics and do 4,8,16 elements at a time
+- Using SSE2/SSE4.1 intrinsics 
+- Using AVX2 intrinsics
 
-godbolt links
---------------------
-- gcc : https://godbolt.org/z/xzvdwd
-- clang : https://godbolt.org/z/uuJkfd
 
 
 
