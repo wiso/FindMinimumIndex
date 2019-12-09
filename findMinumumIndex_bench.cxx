@@ -1,7 +1,6 @@
 ﻿#include <stdlib.h>
 #include <algorithm>
 #include <random>
-#include <iostream>
 #include <benchmark/benchmark.h>
 
 /*
@@ -70,7 +69,7 @@ BENCHMARK_CAPTURE(findMinimumIndexC,C,array,nn);
 /* 
  * Scalar code using STL  
  */
-static void findMinimumIndexCPP(benchmark::State& state,float* __restrict arrayIn, int n){  
+static void findMinimumIndexSTL(benchmark::State& state,float* __restrict arrayIn, int n){  
   for (auto _ : state) {
     float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
     size_t minIndex=std::distance(array, std::min_element(array, array+n));
@@ -78,7 +77,7 @@ static void findMinimumIndexCPP(benchmark::State& state,float* __restrict arrayI
     clobber();
   }
 }
-BENCHMARK_CAPTURE(findMinimumIndexCPP,CPP,array,nn);
+BENCHMARK_CAPTURE(findMinimumIndexSTL,STL,array,nn);
 
 #if defined(__AVX2__)
 #warning ( "AVX2" )
