@@ -8,7 +8,7 @@ Testing various implementation of finding the index of the minimum element in an
 
 Clang example output
 --------------------
-
+```
 2019-12-10 02:05:38
 Running ./mybenchmark
 Run on (8 X 2500 MHz CPU s)
@@ -33,7 +33,7 @@ findMinimumIndexSSE_4_stddev       18.9 ns         17.9 ns           40
 findMinimumIndexSSE_8_mean          606 ns          605 ns           40
 findMinimumIndexSSE_8_median        600 ns          599 ns           40
 findMinimumIndexSSE_8_stddev       16.0 ns         15.2 ns           40
-
+```
 
 
 
