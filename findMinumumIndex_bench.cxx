@@ -2,27 +2,15 @@
 #include <algorithm>
 #include <random>
 #include <benchmark/benchmark.h>
-
 /*
- * CppCon 2015: Chandler Carruth "Tuning C++: Benchmarks, and CPUs, and Compilers! Oh My!"
- */
-static void escape(void *p) {
-  asm volatile("" : : "g"(p) : "memory");
-}
-
-static void clobber() {
-  asm volatile("" : : : "memory");
-}
-
-/*
- * Alignement of  64 bytes  
+ * Alignment of  64 bytes  
  */
 constexpr int alignment=64;
 /*
  * create global data 
  * a bit hacky way
  */
-constexpr size_t nn= 2832;
+constexpr size_t nn=2832;
 float *inArray;
 class InitArray{
 public:
@@ -44,50 +32,50 @@ public:
 };
 InitArray initArray;
 
-
 /* 
  * Scalar code kind of C style 
  */
-static void findMinimumIndexC(benchmark::State& state , float* __restrict arrayIn, int n){  
+static void findMinimumIndexC(benchmark::State& state){  
   for (auto _ : state) {
-    float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
+    float* array = (float*)__builtin_assume_aligned(inArray, alignment);
     float minimum = array[0]; 
     size_t minIndex=0; 
-    for (int i=0 ; i<n ; ++i){
+    for (int i=0 ; i<nn ; ++i){
       const float value = array[i]; 
       if(value<minimum){
         minimum=value;
         minIndex=i;
       }     
     }
-    escape(&minIndex);
-    clobber();
+    benchmark::DoNotOptimize(&minIndex);
+    benchmark::ClobberMemory();
   }
 } 
-BENCHMARK_CAPTURE(findMinimumIndexC,C,inArray,nn);
+BENCHMARK(findMinimumIndexC);
 
 /* 
  * Scalar code using STL  
  */
-static void findMinimumIndexSTL(benchmark::State& state,float* __restrict arrayIn, int n){  
+static void findMinimumIndexSTL(benchmark::State& state){  
   for (auto _ : state) {
-    float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);
-    size_t minIndex=std::distance(array, std::min_element(array, array+n));
-    escape(&minIndex);
-    clobber();
+    float* array = (float*)__builtin_assume_aligned(inArray, alignment);
+    size_t minIndex=std::distance(array, std::min_element(array, array+nn));
+    benchmark::DoNotOptimize(&minIndex);
+    benchmark::ClobberMemory();
+ 
   }
 }
-BENCHMARK_CAPTURE(findMinimumIndexSTL,STL,inArray,nn);
+BENCHMARK(findMinimumIndexSTL);
 
 #if defined(__AVX2__)
 #warning ( "AVX2" )
 #include <immintrin.h>
 /*
- * AVX2 code
+ * AVX2 : 8 elements at a time
  */
-static void findMinimumIndexAVX2(benchmark::State& state,float* __restrict arrayIn, int n) {
+static void findMinimumIndexAVX2(benchmark::State& state) {
   for (auto _ : state) {
-    float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+    float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
 
 
     const __m256i increment = _mm256_set1_epi32(8);
@@ -95,14 +83,24 @@ static void findMinimumIndexAVX2(benchmark::State& state,float* __restrict array
     __m256i minindices      = indices;
     __m256 minvalues        = _mm256_load_ps(array);
 
-    for (int i=8; i<n; i+=8) {
-      //Load 8 elements at a time 
+    for (int i=8; i<nn; i+=8) {
+      /*
+       * Load next 8 elements
+       */
       const __m256 values   = _mm256_load_ps(array+i);  
-      //1
-      indices = _mm256_add_epi32(indices, increment);//increment indices
-      __m256i lt = _mm256_castps_si256 (_mm256_cmp_ps(values, minvalues,_CMP_LT_OS));//compare with previous minvalues/create mask
-      minindices = _mm256_blendv_epi8(minindices, indices, lt);//blend with mask to get updated indices
-      minvalues  = _mm256_min_ps(values, minvalues);//get new min values
+      /*
+       * increment the indices
+       */
+      indices = _mm256_add_epi32(indices, increment);
+      /*
+       * Get a mask indicating when an element is less than the ones we have
+       */
+      __m256i lt = _mm256_castps_si256 (_mm256_cmp_ps(values, minvalues,_CMP_LT_OS));
+      /*
+       * blend select the indices to update
+       */
+      minindices = _mm256_blendv_epi8(minindices, indices, lt);
+      minvalues  = _mm256_min_ps(values, minvalues);
     }
     /*
      * Do the final calculation scalar way 
@@ -120,44 +118,41 @@ static void findMinimumIndexAVX2(benchmark::State& state,float* __restrict array
         minIndex = finalIndices[i];
       }    
     }
-    escape(&minIndex);
-    clobber();
+    benchmark::DoNotOptimize(&minIndex);
+    benchmark::ClobberMemory();
   }
 }
 
-BENCHMARK_CAPTURE(findMinimumIndexAVX2,AVX2,inArray,nn);
+BENCHMARK(findMinimumIndexAVX2);
 #endif
 
 #if defined(__SSE4_1__) || defined(__SSE2__) 
 #if defined(__SSE4_1__) 
-#warning ( "SSE 4_1" )
 #include <smmintrin.h>
 const auto mm_blendv_epi8 = _mm_blendv_epi8;
 #elif defined(__SSE2__)
-#warning ( "SSE_2" )
 #include <emmintrin.h> 
 static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i mask) {
   return _mm_or_si128(_mm_andnot_si128(mask, a), _mm_and_si128(mask, b));
 }
 const auto mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 #endif //on SSE4.1 vs SSE2
-
 /*
- * SSE 4 elemets at a time
+ * SSE2/4.1 : 4 elemets at a time
  */
-static void  findMinimumIndexSSE_4(benchmark::State& state,float* __restrict arrayIn, int n) {
+static void  findMinimumIndexSSE_4(benchmark::State& state) {
 
   for (auto _ : state) {
-    float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+    float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
     const __m128i increment = _mm_set1_epi32(4);
     __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
     __m128i minindices      = indices;
     __m128 minvalues        = _mm_load_ps(array);
 
-    for (int i=4; i<n; i+=4) {
-      const __m128 values        = _mm_load_ps((array + i));//load new values
-      indices = _mm_add_epi32(indices, increment);//increment indices
-       __m128i lt           = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));//compare with previous minvalues/create mask
+    for (int i=4; i<nn; i+=4) {
+      const __m128 values        = _mm_load_ps((array + i));
+      indices = _mm_add_epi32(indices, increment);
+       __m128i lt           = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));
       minindices = mm_blendv_epi8(minindices, indices, lt);
       minvalues  = _mm_min_ps(values, minvalues);
     }
@@ -178,19 +173,19 @@ static void  findMinimumIndexSSE_4(benchmark::State& state,float* __restrict arr
         minIndex = finalIndices[i];
       }    
     }
-    escape(&minIndex);
-    clobber();
+    benchmark::DoNotOptimize(&minIndex);
+    benchmark::ClobberMemory();
   }
 }
 
-BENCHMARK_CAPTURE(findMinimumIndexSSE_4,SSE_4,inArray,nn);
+BENCHMARK(findMinimumIndexSSE_4);
 
 /*
- * SSE 8 elements at time
+ * SSE2/4.1 : 8 elements at time
  */
-static void findMinimumIndexSSE_8(benchmark::State& state,float* __restrict arrayIn, int n) {
+static void findMinimumIndexSSE_8(benchmark::State& state) {
   for (auto _ : state) {
-    float* array = (float*)__builtin_assume_aligned(arrayIn, alignment);  
+    float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
 
     const __m128i increment = _mm_set1_epi32(8);
     __m128i indices1         = _mm_setr_epi32(0, 1, 2, 3);
@@ -200,20 +195,20 @@ static void findMinimumIndexSSE_8(benchmark::State& state,float* __restrict arra
     __m128 minvalues1       = _mm_load_ps(array);
     __m128 minvalues2       = _mm_load_ps(array+4);
 
-    for (int i=8; i<n; i+=8) {
+    for (int i=8; i<nn; i+=8) {
       //Load 8 elements at a time 
-      const __m128 values1   = _mm_load_ps(array+i);  
+      const __m128 values1   = _mm_load_ps(array+i);   //first 4
       const  __m128 values2  = _mm_load_ps(array+i+4); //second 4
       //1
-      indices1 = _mm_add_epi32(indices1, increment);//increment indices
-      __m128i lt1 = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues1));//compare with previous minvalues/create mask
-      minindices1 = mm_blendv_epi8(minindices1, indices1, lt1);//blend with mask to get updated indices
-      minvalues1  = _mm_min_ps(values1, minvalues1);//get new min values
+      indices1 = _mm_add_epi32(indices1, increment);
+      __m128i lt1 = _mm_castps_si128 (_mm_cmplt_ps(values1, minvalues1));
+      minindices1 = mm_blendv_epi8(minindices1, indices1, lt1);
+      minvalues1  = _mm_min_ps(values1, minvalues1);
       //2
-      indices2 = _mm_add_epi32(indices2, increment);//increment indices
-      __m128i lt2 = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues2));//compare with previous minvalues/create mask
-      minindices2 = mm_blendv_epi8(minindices2, indices2, lt2);//blend with mask to get updated indices
-      minvalues2  = _mm_min_ps(values2, minvalues2);//get new min values
+      indices2 = _mm_add_epi32(indices2, increment);
+      __m128i lt2 = _mm_castps_si128 (_mm_cmplt_ps(values2, minvalues2));
+      minindices2 = mm_blendv_epi8(minindices2, indices2, lt2);
+      minvalues2  = _mm_min_ps(values2, minvalues2);
     }
     /*
      * Do the final calculation scalar way 
@@ -233,12 +228,12 @@ static void findMinimumIndexSSE_8(benchmark::State& state,float* __restrict arra
         minIndex = finalIndices[i];
       }    
     }
-    escape(&minIndex);
-    clobber();
+    benchmark::DoNotOptimize(&minIndex);
+    benchmark::ClobberMemory();
   }
 }
 
-BENCHMARK_CAPTURE(findMinimumIndexSSE_8,SSE_8,inArray,nn);
+BENCHMARK(findMinimumIndexSSE_8);
 #endif //AVX vs SSE2/4.1
 
 BENCHMARK_MAIN();
