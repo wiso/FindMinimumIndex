@@ -10,7 +10,7 @@ constexpr int alignment=64;
  * create global data 
  * a bit hacky way
  */
-constexpr size_t nn=2832;
+constexpr size_t nn=8<<9;
 float *inArray;
 class InitArray{
 public:
@@ -37,10 +37,11 @@ InitArray initArray;
  */
 static void findMinimumIndexC(benchmark::State& state){  
   for (auto _ : state) {
+    const int n=state.range(0);
     float* array = (float*)__builtin_assume_aligned(inArray, alignment);
     float minimum = array[0]; 
     size_t minIndex=0; 
-    for (int i=0 ; i<nn ; ++i){
+    for (int i=0 ; i<n ; ++i){
       const float value = array[i]; 
       if(value<minimum){
         minimum=value;
@@ -51,21 +52,22 @@ static void findMinimumIndexC(benchmark::State& state){
     benchmark::ClobberMemory();
   }
 } 
-BENCHMARK(findMinimumIndexC);
+BENCHMARK(findMinimumIndexC)->Range(64, 8<<9);
 
 /* 
  * Scalar code using STL  
  */
 static void findMinimumIndexSTL(benchmark::State& state){  
   for (auto _ : state) {
+    const int n=state.range(0);
     float* array = (float*)__builtin_assume_aligned(inArray, alignment);
-    size_t minIndex=std::distance(array, std::min_element(array, array+nn));
+    size_t minIndex=std::distance(array, std::min_element(array, array+n));
     benchmark::DoNotOptimize(&minIndex);
     benchmark::ClobberMemory();
- 
+
   }
 }
-BENCHMARK(findMinimumIndexSTL);
+BENCHMARK(findMinimumIndexSTL)->Range(64, 8<<9);
 
 #if defined(__AVX2__)
 #warning ( "AVX2" )
@@ -75,6 +77,7 @@ BENCHMARK(findMinimumIndexSTL);
  */
 static void findMinimumIndexAVX2(benchmark::State& state) {
   for (auto _ : state) {
+    const int n=state.range(0);
     float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
 
 
@@ -83,7 +86,7 @@ static void findMinimumIndexAVX2(benchmark::State& state) {
     __m256i minindices      = indices;
     __m256 minvalues        = _mm256_load_ps(array);
 
-    for (int i=8; i<nn; i+=8) {
+    for (int i=8; i<n; i+=8) {
       /*
        * Load next 8 elements
        */
@@ -123,7 +126,7 @@ static void findMinimumIndexAVX2(benchmark::State& state) {
   }
 }
 
-BENCHMARK(findMinimumIndexAVX2);
+BENCHMARK(findMinimumIndexAVX2)->Range(64, 8<<9);
 #endif
 
 #if defined(__SSE4_1__) || defined(__SSE2__) 
@@ -143,16 +146,17 @@ const auto mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 static void  findMinimumIndexSSE_4(benchmark::State& state) {
 
   for (auto _ : state) {
+    const int n=state.range(0);
     float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
     const __m128i increment = _mm_set1_epi32(4);
     __m128i indices         = _mm_setr_epi32(0, 1, 2, 3);
     __m128i minindices      = indices;
     __m128 minvalues        = _mm_load_ps(array);
 
-    for (int i=4; i<nn; i+=4) {
+    for (int i=4; i<n; i+=4) {
       const __m128 values        = _mm_load_ps((array + i));
       indices = _mm_add_epi32(indices, increment);
-       __m128i lt           = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));
+      __m128i lt           = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));
       minindices = mm_blendv_epi8(minindices, indices, lt);
       minvalues  = _mm_min_ps(values, minvalues);
     }
@@ -178,13 +182,14 @@ static void  findMinimumIndexSSE_4(benchmark::State& state) {
   }
 }
 
-BENCHMARK(findMinimumIndexSSE_4);
+BENCHMARK(findMinimumIndexSSE_4)->Range(64, 8<<9);
 
 /*
  * SSE2/4.1 : 8 elements at time
  */
 static void findMinimumIndexSSE_8(benchmark::State& state) {
   for (auto _ : state) {
+    const int n=state.range(0);
     float* array = (float*)__builtin_assume_aligned(inArray, alignment);  
 
     const __m128i increment = _mm_set1_epi32(8);
@@ -195,7 +200,7 @@ static void findMinimumIndexSSE_8(benchmark::State& state) {
     __m128 minvalues1       = _mm_load_ps(array);
     __m128 minvalues2       = _mm_load_ps(array+4);
 
-    for (int i=8; i<nn; i+=8) {
+    for (int i=8; i<n; i+=8) {
       //Load 8 elements at a time 
       const __m128 values1   = _mm_load_ps(array+i);   //first 4
       const  __m128 values2  = _mm_load_ps(array+i+4); //second 4
@@ -233,7 +238,7 @@ static void findMinimumIndexSSE_8(benchmark::State& state) {
   }
 }
 
-BENCHMARK(findMinimumIndexSSE_8);
+BENCHMARK(findMinimumIndexSSE_8)->Range(64, 8<<9);
 #endif //AVX vs SSE2/4.1
 
 BENCHMARK_MAIN();

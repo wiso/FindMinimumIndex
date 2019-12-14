@@ -6,8 +6,9 @@ Testing various implementation of finding the index of the minimum element in an
 - Using SSE2/SSE4.1 intrinsics 
 - Using AVX2 intrinsics
 
-Clang example output
---------------------
+
+clang8 with  -march=x86-64 -O2 example output
+-------------------------------------
 ```
 2019-12-10 02:05:38
 Running ./mybenchmark
