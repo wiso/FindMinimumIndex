@@ -133,13 +133,14 @@ BENCHMARK(findMinimumIndexAVX2)->Range(64, 8<<9);
 #if defined(__SSE4_1__) 
 #include <smmintrin.h>
 const auto mm_blendv_epi8 = _mm_blendv_epi8;
+const auto mm_blendv_ps = _mm_blendv_ps;
 #elif defined(__SSE2__)
 #include <emmintrin.h> 
 static inline __m128i SSE2_mm_blendv_epi8(__m128i a, __m128i b, __m128i mask) {
   return _mm_or_si128(_mm_andnot_si128(mask, a), _mm_and_si128(mask, b));
 }
-static inline __m128 SSE2_mm_blendv_ps(__m128 a, __m128 b, __m128i mask) {
-  return _mm_or_ps(_mm_andnot_ps(_mm_castsi128_ps(mask), a), _mm_and_ps(_mm_castsi128_ps(mask), b));
+static inline __m128 SSE2_mm_blendv_ps(__m128 a, __m128 b, __m128 mask) {
+  return _mm_or_ps(_mm_andnot_ps(mask, a), _mm_and_ps(mask, b));
 }
 const auto mm_blendv_epi8 = SSE2_mm_blendv_epi8;
 const auto mm_blendv_ps = SSE2_mm_blendv_ps;
@@ -207,7 +208,7 @@ static void  findMinimumIndexSSEBlendValues_4(benchmark::State& state) {
       indices = _mm_add_epi32(indices, increment);
       __m128i lt           = _mm_castps_si128 (_mm_cmplt_ps(values, minvalues));
       minindices = mm_blendv_epi8(minindices, indices, lt);
-      minvalues  = mm_blendv_ps(values, minvalues, lt);
+      minvalues  = mm_blendv_ps(values, minvalues, _mm_castsi128_ps(lt));
     }
     /*
      * do the final calculation scalar way
